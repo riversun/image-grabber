@@ -40,9 +40,11 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.ArrayList;
@@ -81,6 +83,16 @@ public class ImageGrabber {
 
     public ImageGrabber(BufferedImage image) {
         mImage = image;
+    }
+
+    public ImageGrabber(byte[] imageBytes) {
+
+        final InputStream in = new ByteArrayInputStream(imageBytes);
+        try {
+            mImage = ImageIO.read(in);
+        } catch (IOException e) {
+            mImage = createImage(1, 1);
+        }
     }
 
     /**
@@ -1045,6 +1057,24 @@ public class ImageGrabber {
     }
 
     /**
+     * Save current image to file<br>
+     * 
+     * @param os
+     * @param imageFormat
+     * @return
+     */
+    public boolean saveImageTo(OutputStream os, ImageFormat imageFormat) {
+        try {
+            save(mImage, imageFormat, os, mJpegQualityPercentage);
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+
+    }
+
+    /**
      * Erase alpha-value form the color of pixels
      * 
      * @return
@@ -1346,14 +1376,60 @@ public class ImageGrabber {
     }
 
     /**
+     * 
+     * Image format of image
+     *
+     */
+    public enum ImageFormat {
+        PNG, JPEG;
+    }
+
+    /**
+     * Save image to file<br>
+     * supported format is PNG and JPEG<br>
+     * 
+     * @param bufImage
+     * @param imageType
+     * @param os
+     * @param jpegQualityPercentage
+     * @throws IOException
+     */
+    private static void save(BufferedImage bufImage, ImageFormat imageType, OutputStream os, int jpegQualityPercentage) throws IOException {
+
+        if (ImageFormat.PNG == imageType) {
+            ImageIO.write(bufImage, "PNG", os);
+        }
+        else if (ImageFormat.JPEG == imageType) {
+            saveJpeg(bufImage, os, (float) jpegQualityPercentage / 100f);
+        }
+        else {
+            throw new RuntimeException("Error occured while saving the image.Not supported extension. only supported .png / .jpg ");
+        }
+
+    }
+
+    /**
      * Save JPEG image with quality option
      * 
      * @param argbBufImage
-     * @param f
+     * @param file
      * @param quality
      * @throws IOException
      */
-    private static void saveJpeg(BufferedImage argbBufImage, File f, float quality) throws IOException {
+    private static void saveJpeg(BufferedImage argbBufImage, File file, float quality) throws IOException {
+        final OutputStream os = new FileOutputStream(file);
+        saveJpeg(argbBufImage, os, quality);
+    }
+
+    /**
+     * Save JPEG image with quality option
+     * 
+     * @param argbBufImage
+     * @param os
+     * @param quality
+     * @throws IOException
+     */
+    private static void saveJpeg(BufferedImage argbBufImage, OutputStream os, float quality) throws IOException {
 
         // convert ARGB image into RGB image
         final BufferedImage rgbBufImage = new BufferedImage(argbBufImage.getWidth(), argbBufImage.getHeight(), BufferedImage.TYPE_INT_RGB);
@@ -1374,7 +1450,6 @@ public class ImageGrabber {
 
         jpegWriteParam.setCompressionQuality(quality);
 
-        final OutputStream os = new FileOutputStream(f);
         jpegWriter.setOutput(ImageIO.createImageOutputStream(os));
 
         final IIOImage jpegImage = new IIOImage(rgbBufImage, null, null);
